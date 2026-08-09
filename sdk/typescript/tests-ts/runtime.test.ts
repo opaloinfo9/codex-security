@@ -223,24 +223,32 @@ describe("plugin runtime preparation", () => {
     ]);
   });
 
-  test("includes ignored tracked files in the scoped security inventory", async () => {
+  test("uses canonical separators for ignored tracked files in the scoped security inventory", async () => {
     if (Bun.which("rg") === null) {
       const generator = await readFile(
         join(PLUGIN_ROOT, "scripts", "generate_in_scope_files.py"),
         "utf8",
       );
       expect(generator).toContain('"--no-ignore"');
+      expect(generator).toContain('"--path-separator"');
       return;
     }
 
     const root = await temporaryDirectory("codex-security-scan-inventory-");
     const repository = join(root, "repository");
     await mkdir(repository);
-    await writeFile(join(repository, ".gitignore"), "tracked-secret.py\n");
-    await writeFile(join(repository, "tracked-secret.py"), "secret = True\n");
+    await mkdir(join(repository, "nested"));
+    await writeFile(
+      join(repository, ".gitignore"),
+      "nested/tracked-secret.py\n",
+    );
+    await writeFile(
+      join(repository, "nested", "tracked-secret.py"),
+      "secret = True\n",
+    );
     for (const args of [
       ["init", "--quiet", repository],
-      ["-C", repository, "add", "--force", "--", "tracked-secret.py"],
+      ["-C", repository, "add", "--force", "--", "nested/tracked-secret.py"],
     ]) {
       const initialized = spawnSync("git", args, { encoding: "utf8" });
       expect(initialized.status, initialized.stderr).toBe(0);
@@ -265,7 +273,9 @@ describe("plugin runtime preparation", () => {
       { encoding: "utf8" },
     );
     expect(inventory.status, inventory.stderr).toBe(0);
-    expect(await readFile(output, "utf8")).toContain("tracked-secret.py");
+    expect((await readFile(output, "utf8")).split(/\r?\n/u)).toContain(
+      "./nested/tracked-secret.py",
+    );
   });
 
   test("preserves remediation when the filesystem device changes", async () => {
