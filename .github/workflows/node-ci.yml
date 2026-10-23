@@ -243,7 +243,8 @@ jobs:
   compatibility:
     name: installed package / ${{ matrix.os }} / node-${{ matrix.node }}
     needs: [classify-changes, package]
-    runs-on: ${{ matrix.os }}
+    # The Action sandbox profile is supplied by Ubuntu 24.04's apparmor-profiles package.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.node == '24' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
